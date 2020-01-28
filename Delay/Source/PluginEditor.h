@@ -35,12 +35,14 @@ private:
 	Slider m_sldDelayTime;
 	Label m_lblFeedback;
 	Slider m_sldFeedback;
+	Slider m_sldDryWet;
 
 	TextButton mBtnReset;
 	//TextButton mChangeDelayTimeButton;
 
 	std::unique_ptr<AudioProcessorValueTreeState::SliderAttachment> m_attachDelayTime;
 	std::unique_ptr<AudioProcessorValueTreeState::SliderAttachment> m_attachFeedback;
+	std::unique_ptr<AudioProcessorValueTreeState::SliderAttachment> m_attachDryWet;
 
 	void buttonClicked(Button*) override;
 

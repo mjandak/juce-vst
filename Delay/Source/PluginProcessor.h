@@ -61,23 +61,21 @@ public:
 	void getStateInformation(MemoryBlock& destData) override;
 	void setStateInformation(const void* data, int sizeInBytes) override;
 
-	void SetDelayTime(int ms);
-
 private:
 	//delay buffer
 	AudioBuffer<float> mDelayBuffer;
 
 	//current write position in delay buffer
-	int mDelayBufferWritePosition{ 0 };
-
-	//samples per second
-	double mSampleRate{ 44100 };
+	int m_delayBufferWritePosition{ 0 };
+	int m_delayedBlockPosition{ 0 };
 
 	std::atomic<float*> m_DelayTimeParameter = nullptr;
 	std::atomic<float*> m_FeedbackParameter = nullptr;
+	std::atomic<float*> m_DryWetParameter = nullptr;
 
-	void CopyToDelayBuffer(int channel, int bufferLength, int delayBufferLength, const float* bufferData, const float* delayBufferData);
-	void AddFromDelayBuffer(int channel, AudioBuffer<float>& buffer, const int bufferLength, const int delayBufferLength, const float* bufferData, const float* delayBufferData);
+	void DelayBufferInput(int channel, int bufferLength, int delayBufferLength, const float* bufferData, const float* delayBufferData);
+	void Feedback(int channel, AudioBuffer<float>& buffer, const int bufferLength, const int delayBufferLength, const float* bufferData, const float* delayBufferData);
+	void DWMix(int channel, AudioBuffer<float>& buffer, int bufferLength, const float* delayBufferData, int delayBufferLength);
 
 	//==============================================================================
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DelayAudioProcessor)

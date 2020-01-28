@@ -23,25 +23,15 @@ DelayAudioProcessor::DelayAudioProcessor()
 #endif
 	), tree(*this, nullptr, "PARAMETERS", {
 		std::make_unique<AudioParameterInt>("delaytime", "Delay time", 0, 2000, 250),
-		std::make_unique<AudioParameterFloat>("feedback", "Feedback", 0.0, 1.0, 0.6) })
+		std::make_unique<AudioParameterFloat>("feedback", "Feedback", 0.0, 1.0, 0.6),
+		std::make_unique<AudioParameterFloat>("drywet", "DryWet", 0.0, 1.0, 0.5)
+		}
+	)
 #endif
 {
-	//addParameter(mDelayTimeParam = new AudioParameterInt(
-	//	"delayTime", // parameter ID
-	//	"DelayTime", // parameter name
-	//	0,   // minimum value
-	//	2000,   // maximum value
-	//	500)); // default value
-
-	//addParameter(mFeedbackParam = new AudioParameterFloat(
-	//	"feedback", // parameter ID
-	//	"Feedback", // parameter name
-	//	0.0,   // minimum value
-	//	1.0,   // maximum value
-	//	0.7)); // default value
-
 	m_DelayTimeParameter = tree.getRawParameterValue("delaytime");
 	m_FeedbackParameter = tree.getRawParameterValue("feedback");
+	m_DryWetParameter = tree.getRawParameterValue("drywet");
 }
 
 DelayAudioProcessor::~DelayAudioProcessor()
@@ -118,7 +108,6 @@ void DelayAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 
 	//two seconds of delay time plus little bit of extra room
 	const int delayBufferSize = 2 * (sampleRate + samplesPerBlock);
-	mSampleRate = sampleRate;
 
 	mDelayBuffer.setSize(getTotalNumInputChannels(), delayBufferSize);
 	mDelayBuffer.clear();
@@ -183,83 +172,79 @@ void DelayAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer& m
 		//auto* channelData = buffer.getWritePointer (channel);
 		auto bufferData = buffer.getReadPointer(channel);
 		auto delayBufferData = mDelayBuffer.getReadPointer(channel);
-		AddFromDelayBuffer(channel, buffer, bufferLength, delayBufferLength, bufferData, delayBufferData);
-		CopyToDelayBuffer(channel, bufferLength, delayBufferLength, bufferData, delayBufferData);
+		DelayBufferInput(channel, bufferLength, delayBufferLength, bufferData, delayBufferData);
+		Feedback(channel, buffer, bufferLength, delayBufferLength, bufferData, delayBufferData);
+		DWMix(channel, buffer, bufferLength, delayBufferData, delayBufferLength);
 	}
 
 	//shift delay buffer write position by main buffer's length
-	mDelayBufferWritePosition += bufferLength;
+	m_delayBufferWritePosition += bufferLength;
 	//if write position exceeds delay buffer length, wrap around
-	mDelayBufferWritePosition %= delayBufferLength;
+	m_delayBufferWritePosition %= delayBufferLength;
 }
 
-void DelayAudioProcessor::CopyToDelayBuffer(int channel, int bufferLength, int delayBufferLength, const float* bufferData, const float* delayBufferData)
+//Copy bufferData to delayBufferData at m_delayBufferWritePosition
+void DelayAudioProcessor::DelayBufferInput(int channel, int bufferLength, int delayBufferLength, const float* bufferData, const float* delayBufferData)
 {
 	//number of empty samples left in delay buffer:
 	//(last_sample_idx - first_empty_sample_idx) + 1 = last_sample_idx + 1 - first_empty_sample_idx = delay_buffer_length - first_empty_sample_idx
-	const int emptySamplesLeft = delayBufferLength - mDelayBufferWritePosition;
+	const int emptySamplesLeft = delayBufferLength - m_delayBufferWritePosition;
 
 	//is there in delay buff enough space to fit main buff?
 	if (emptySamplesLeft >= bufferLength)
-		//if (delayBufferLength > mDelayBufferWritePosition + bufferLength)
 	{
 		//there is
-		//copy bufferData to delayBufferData at mDelayBufferWritePosition
-		mDelayBuffer.copyFrom(channel, mDelayBufferWritePosition, bufferData, bufferLength);
+		mDelayBuffer.copyFrom(channel, m_delayBufferWritePosition, bufferData, bufferLength);
 	}
 	else
 	{
 		//there is not
-		mDelayBuffer.copyFrom(channel, mDelayBufferWritePosition, bufferData, emptySamplesLeft);
+		mDelayBuffer.copyFrom(channel, m_delayBufferWritePosition, bufferData, emptySamplesLeft);
 		mDelayBuffer.copyFrom(channel, 0, bufferData + emptySamplesLeft, bufferLength - emptySamplesLeft);
 	}
 }
 
-void DelayAudioProcessor::AddFromDelayBuffer(int channel, AudioBuffer<float>& buffer, const int bufferLength, const int delayBufferLength, const float* bufferData, const float* delayBufferData)
+//Add delay buffer's output to it's input
+void DelayAudioProcessor::Feedback(int channel, AudioBuffer<float>& buffer, const int bufferLength, const int delayBufferLength, const float* bufferData, const float* delayBufferData)
 {
 	//delay time in ms
 	int delayTime = *m_DelayTimeParameter;
 	float feedback = *m_FeedbackParameter;
 
-	//const int readPosition = static_cast<int>(delayBufferLength + mDelayBufferWritePosition - (mSampleRate * delayTime / 1000)) % delayBufferLength;
-
-	//if (delayBufferLength > bufferLength + readPosition)
-	//{
-	//	buffer.addFrom(channel, 0, delayBufferData + readPosition, bufferLength);
-	//}
-
-	int samplesPerDelayTime = std::lround(mSampleRate * (delayTime / 1000.0f));
+	//sample rate = samples per second
+	const int samplesPerDelayTime = std::lround(getSampleRate() * (delayTime / 1000.0));
 	//go back in time
-	int delayBufferReadPosition = mDelayBufferWritePosition - samplesPerDelayTime; // -1 ???
-	if (delayBufferReadPosition < 0)
+	m_delayedBlockPosition = m_delayBufferWritePosition - samplesPerDelayTime; // -1 ???
+	if (m_delayedBlockPosition < 0)
 	{
-		delayBufferReadPosition = delayBufferLength - 1 + delayBufferReadPosition;
+		m_delayedBlockPosition = delayBufferLength - 1 + m_delayedBlockPosition;
 	}
 
-	//now mix main buffer with data from delay buffer starting at delayBufferReadPosition
-	//is there enough samples in delay buff to fill main buff (from delayBufferReadPosition to the end of delay buff)?
-	//number of remaining samples in delay buff:
-	//(delayBufferLength - 1 - delayBufferReadPosition) + 1 = delayBufferLength - delayBufferReadPosition
-	int numOfRemainingSamplesInDelayBuff = delayBufferLength - delayBufferReadPosition;
-	if (numOfRemainingSamplesInDelayBuff >= bufferLength)
+	for (int i = 0; i < bufferLength; i++)
 	{
-		//there is
-		buffer.addFrom(channel, 0, delayBufferData + delayBufferReadPosition, bufferLength, feedback);
-		//buffer.copyFrom(channel, 0, delayBufferData + delayBufferReadPosition, bufferLength);
-	}
-	else
-	{
-		//there is not
-		buffer.addFrom(channel, 0, delayBufferData + delayBufferReadPosition, numOfRemainingSamplesInDelayBuff, feedback);
-		buffer.addFrom(channel, 0 + numOfRemainingSamplesInDelayBuff, delayBufferData + 0, bufferLength - (numOfRemainingSamplesInDelayBuff), feedback);
-		//buffer.copyFrom(channel, 0, delayBufferData + delayBufferReadPosition, numOfRemainingSamplesInDelayBuff);
-		//buffer.copyFrom(channel, 0 + numOfRemainingSamplesInDelayBuff, delayBufferData + 0, bufferLength - (numOfRemainingSamplesInDelayBuff));
+		auto delayeSamplePosition = (m_delayedBlockPosition + i) % delayBufferLength;
+		auto delayedSample = mDelayBuffer.getSample(channel, delayeSamplePosition);
+		auto currentSamplePosition = (m_delayBufferWritePosition + i) % delayBufferLength;
+		auto currentSample = mDelayBuffer.getSample(channel, currentSamplePosition);
+		mDelayBuffer.setSample(channel, currentSamplePosition, (feedback * delayedSample) + currentSample);
 	}
 }
 
-void DelayAudioProcessor::SetDelayTime(int ms)
+void DelayAudioProcessor::DWMix(int channel, AudioBuffer<float>& buffer, int bufferLength, const float* delayBufferData, int delayBufferLength)
 {
-	//mDelayTimeParam->setValueNotifyingHost(ms);
+	float dryWet = *m_DryWetParameter;
+	buffer.applyGain(channel, 0, bufferLength, 1.0f - dryWet);
+	const int numOfRemainingSamplesInDelayBuff = delayBufferLength - m_delayedBlockPosition;
+	if (numOfRemainingSamplesInDelayBuff >= bufferLength)
+	{
+		buffer.addFrom(channel, 0, delayBufferData + m_delayedBlockPosition, bufferLength, dryWet);
+	}
+	else
+	{
+		buffer.addFrom(channel, 0, delayBufferData + m_delayedBlockPosition, numOfRemainingSamplesInDelayBuff, dryWet);
+		buffer.addFrom(channel, 0, delayBufferData, bufferLength - numOfRemainingSamplesInDelayBuff, dryWet);
+	}
+
 }
 
 //==============================================================================

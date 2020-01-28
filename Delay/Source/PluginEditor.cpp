@@ -26,8 +26,13 @@ DelayAudioProcessorEditor::DelayAudioProcessorEditor(DelayAudioProcessor& p)
 
 	m_sldFeedback.setSliderStyle(Slider::RotaryVerticalDrag);
 	m_sldFeedback.setTextBoxStyle(Slider::TextBoxBelow, true, 90, 20);
-	m_sldFeedback.setPopupDisplayEnabled(true, false, this);
+	//m_sldFeedback.setPopupDisplayEnabled(true, false, this);
 	addAndMakeVisible(m_sldFeedback);
+
+	m_sldDryWet.setSliderStyle(Slider::RotaryVerticalDrag);
+	m_sldDryWet.setTextBoxStyle(Slider::TextBoxBelow, true, 90, 20);
+	//m_sldDryWet.setPopupDisplayEnabled(true, false, this);
+	addAndMakeVisible(m_sldDryWet);
 
 	//mChangeDelayTimeButton.setButtonText("change delay time");
 	//addAndMakeVisible(&mChangeDelayTimeButton);
@@ -43,6 +48,7 @@ DelayAudioProcessorEditor::DelayAudioProcessorEditor(DelayAudioProcessor& p)
 
 	m_attachDelayTime.reset(new AudioProcessorValueTreeState::SliderAttachment(processor.tree, "delaytime", m_sldDelayTime));
 	m_attachFeedback.reset(new AudioProcessorValueTreeState::SliderAttachment(processor.tree, "feedback", m_sldFeedback));
+	m_attachDryWet.reset(new AudioProcessorValueTreeState::SliderAttachment(processor.tree, "drywet", m_sldDryWet));
 }
 
 DelayAudioProcessorEditor::~DelayAudioProcessorEditor()
@@ -72,6 +78,8 @@ void DelayAudioProcessorEditor::resized()
 	m_lblFeedback.setBounds(120, 10, 100, 20);
 	m_lblFeedback.setJustificationType(Justification::centred);
 	m_sldFeedback.setBounds(120, 40, 100, 100);
+
+	m_sldDryWet.setBounds(230, 40, 100, 100);
 	
 	//mChangeDelayTimeButton.setBounds(80, 30, 50, 30);
 	mBtnReset.setBounds(getWidth() - 50 - 10, 10, 50, 30);
