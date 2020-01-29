@@ -6,4 +6,4 @@ Delay: basic delay effect created using circular buffer method. With delay time,
 
 
 StateVariableFilter: basic state variable filter created using StateVariableFilter::Filter class in JUCE dsp module. With possibility to switch between low, band and high pass filter type.
-<img src="StateVariableFilter.png" />
+<img src="StateVariableFilter/StateVariableFilter.png" />
