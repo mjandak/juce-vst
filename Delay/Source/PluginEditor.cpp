@@ -45,6 +45,8 @@ DelayAudioProcessorEditor::DelayAudioProcessorEditor(DelayAudioProcessor& p)
 	addAndMakeVisible(m_lblDelayTime);
 	m_lblFeedback.setText("Feedback", NotificationType::dontSendNotification);
 	addAndMakeVisible(m_lblFeedback);
+	m_lblDryWet.setText("Dry/Wet", NotificationType::dontSendNotification);
+	addAndMakeVisible(m_lblDryWet);
 
 	m_attachDelayTime.reset(new AudioProcessorValueTreeState::SliderAttachment(processor.tree, "delaytime", m_sldDelayTime));
 	m_attachFeedback.reset(new AudioProcessorValueTreeState::SliderAttachment(processor.tree, "feedback", m_sldFeedback));
@@ -79,6 +81,8 @@ void DelayAudioProcessorEditor::resized()
 	m_lblFeedback.setJustificationType(Justification::centred);
 	m_sldFeedback.setBounds(120, 40, 100, 100);
 
+	m_lblDryWet.setBounds(230, 10, 100, 20);
+	m_lblDryWet.setJustificationType(Justification::centred);
 	m_sldDryWet.setBounds(230, 40, 100, 100);
 	
 	//mChangeDelayTimeButton.setBounds(80, 30, 50, 30);
@@ -90,13 +94,14 @@ void DelayAudioProcessorEditor::buttonClicked(Button* btn)
 	auto text = btn->getButtonText();
 	if (text == "change delay time")
 	{
-		processor.mDelayTime -= 100;
+		//processor.mDelayTime -= 100;
 	}
 	else if (text == "reset")
 	{
 		setSize(500, 300);
 		m_sldDelayTime.setValue(250);
 		m_sldFeedback.setValue(0.6);
+		m_sldDryWet.setValue(0.5);
 		//processor.mDelayTime = 500;
 	}
 }

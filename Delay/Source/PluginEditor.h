@@ -35,6 +35,7 @@ private:
 	Slider m_sldDelayTime;
 	Label m_lblFeedback;
 	Slider m_sldFeedback;
+	Label m_lblDryWet;
 	Slider m_sldDryWet;
 
 	TextButton mBtnReset;

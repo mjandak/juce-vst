@@ -106,9 +106,11 @@ void DelayAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 	// Use this method as the place to do any pre-playback
 	// initialisation that you need..
 
-	//two seconds of delay time plus little bit of extra room
-	const int delayBufferSize = 2 * (sampleRate + samplesPerBlock);
+	m_sampleRate = sampleRate;
 
+	//two seconds of delay time plus little bit of extra room
+	const int delayBufferSize = 2 * (m_sampleRate + samplesPerBlock);
+	
 	mDelayBuffer.setSize(getTotalNumInputChannels(), delayBufferSize);
 	mDelayBuffer.clear();
 }
@@ -208,16 +210,16 @@ void DelayAudioProcessor::DelayBufferInput(int channel, int bufferLength, int de
 void DelayAudioProcessor::Feedback(int channel, AudioBuffer<float>& buffer, const int bufferLength, const int delayBufferLength, const float* bufferData, const float* delayBufferData)
 {
 	//delay time in ms
-	int delayTime = *m_DelayTimeParameter;
-	float feedback = *m_FeedbackParameter;
+	const int delayTime = *m_DelayTimeParameter;
+	const float feedback = *m_FeedbackParameter;
 
 	//sample rate = samples per second
-	const int samplesPerDelayTime = std::lround(getSampleRate() * (delayTime / 1000.0));
+	const int samplesPerDelayTime = std::lround(m_sampleRate * (delayTime / 1000.0));
 	//go back in time
 	m_delayedBlockPosition = m_delayBufferWritePosition - samplesPerDelayTime; // -1 ???
 	if (m_delayedBlockPosition < 0)
 	{
-		m_delayedBlockPosition = delayBufferLength - 1 + m_delayedBlockPosition;
+		m_delayedBlockPosition = delayBufferLength + m_delayedBlockPosition;
 	}
 
 	for (int i = 0; i < bufferLength; i++)
@@ -232,7 +234,7 @@ void DelayAudioProcessor::Feedback(int channel, AudioBuffer<float>& buffer, cons
 
 void DelayAudioProcessor::DWMix(int channel, AudioBuffer<float>& buffer, int bufferLength, const float* delayBufferData, int delayBufferLength)
 {
-	float dryWet = *m_DryWetParameter;
+	const float dryWet = *m_DryWetParameter;
 	buffer.applyGain(channel, 0, bufferLength, 1.0f - dryWet);
 	const int numOfRemainingSamplesInDelayBuff = delayBufferLength - m_delayedBlockPosition;
 	if (numOfRemainingSamplesInDelayBuff >= bufferLength)
@@ -242,7 +244,7 @@ void DelayAudioProcessor::DWMix(int channel, AudioBuffer<float>& buffer, int buf
 	else
 	{
 		buffer.addFrom(channel, 0, delayBufferData + m_delayedBlockPosition, numOfRemainingSamplesInDelayBuff, dryWet);
-		buffer.addFrom(channel, 0, delayBufferData, bufferLength - numOfRemainingSamplesInDelayBuff, dryWet);
+		buffer.addFrom(channel, 0 + numOfRemainingSamplesInDelayBuff, delayBufferData, bufferLength - numOfRemainingSamplesInDelayBuff, dryWet);
 	}
 
 }

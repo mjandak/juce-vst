@@ -20,7 +20,7 @@ class DelayAudioProcessor : public AudioProcessor
 public:
 	//AudioParameterInt* mDelayTimeParam;
 	//AudioParameterFloat* mFeedbackParam;
-	int mDelayTime{ 500 };
+	//int mDelayTime{ 500 };
 	AudioProcessorValueTreeState tree;
 
 	//==============================================================================
@@ -68,6 +68,8 @@ private:
 	//current write position in delay buffer
 	int m_delayBufferWritePosition{ 0 };
 	int m_delayedBlockPosition{ 0 };
+	//samples per second
+	double m_sampleRate;
 
 	std::atomic<float*> m_DelayTimeParameter = nullptr;
 	std::atomic<float*> m_FeedbackParameter = nullptr;
