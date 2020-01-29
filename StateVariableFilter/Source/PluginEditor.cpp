@@ -70,10 +70,12 @@ void StateVariableFilterAudioProcessorEditor::resized()
 
 	cbxFilterType.setBounds(10, 10, 150, 20);
 	
-	lblCutoff.setBounds(60-25, 40, 50, 20);
+	lblCutoff.setBounds(10, 40, 100, 20);
+	lblCutoff.setJustificationType(Justification::centred);
 	sldCutOff.setBounds(10, 60, 100, 100);
 
-	lblRes.setBounds(170-25, 40, 50, 20);
+	lblRes.setBounds(120, 40, 100, 20);
+	lblRes.setJustificationType(Justification::centred);
 	sldRes.setBounds(120, 60, 100, 100);
 	
 }
