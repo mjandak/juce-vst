@@ -17,7 +17,7 @@ StateVariableFilterAudioProcessorEditor::StateVariableFilterAudioProcessorEditor
 {
 	// Make sure that before the constructor has finished, you've set the
 	// editor's size to whatever you need it to be.
-	setSize(400, 300);
+	setSize(400, 200);
 
 	cbxFilterType.setJustificationType(Justification::centred);
 	cbxFilterType.addItem("low pass", 1);
@@ -28,6 +28,7 @@ StateVariableFilterAudioProcessorEditor::StateVariableFilterAudioProcessorEditor
 	sldCutOff.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
 	sldCutOff.setName("cut off freq");
 	sldCutOff.setTextBoxStyle(Slider::TextBoxBelow, true, 90, 20);
+	sldCutOff.setTextValueSuffix(" Hz");
 	addAndMakeVisible(&sldCutOff);
 
 	sldRes.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
@@ -65,8 +66,6 @@ void StateVariableFilterAudioProcessorEditor::resized()
 {
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
-
-	setSize(500, 400);
 
 	cbxFilterType.setBounds(10, 10, 150, 20);
 	

@@ -65,9 +65,9 @@ public:
 
 
 private:
-	std::atomic<float*> filerTypeParameter = nullptr;
-	std::atomic<float*> cutoffParameter = nullptr;
-	std::atomic<float*> resParameter = nullptr;
+	std::atomic<float>* filerTypeParameter = nullptr;
+	std::atomic<float>* cutoffParameter = nullptr;
+	std::atomic<float>* resParameter = nullptr;
 	dsp::ProcessorDuplicator<dsp::StateVariableFilter::Filter<float>, dsp::StateVariableFilter::Parameters<float>> stateVarialbleFilter;
 
     //==============================================================================

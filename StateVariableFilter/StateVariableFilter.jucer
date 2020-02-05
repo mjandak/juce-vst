@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="kOrVva" name="StateVariableFilter" projectType="audioplug"
-              jucerVersion="5.4.5">
+              jucerVersion="5.4.6">
   <MAINGROUP id="c6hiou" name="StateVariableFilter">
     <GROUP id="{A49115B3-85B2-FF87-F7F7-A709CAA85B69}" name="Source">
       <FILE id="CLR5VV" name="PluginProcessor.cpp" compile="1" resource="0"

@@ -22,24 +22,12 @@ StateVariableFilterAudioProcessor::StateVariableFilterAudioProcessor()
 #endif
 		.withOutput("Output", AudioChannelSet::stereo(), true)
 #endif
-	), tree(*this, nullptr, "PARAMETERS", {
-		std::make_unique<AudioParameterInt>("filterType", "Filter Menu", 0, 2, 0),
-		std::make_unique<AudioParameterFloat>("cutoff", "Freq", NormalisableRange<float>(20.0, 20000.0, 0.0, 0.25), 600.0),
-		std::make_unique<AudioParameterFloat>("res", "Res", NormalisableRange<float>(0.0, 5.0), 1.0 / MathConstants<double>::sqrt2) })
+	), tree(*this, nullptr)
 #endif
 {
-	//addParameter(mFilterTypeParam = new AudioParameterInt(
-	//	"filterType", // parameter ID
-	//	"FilterType", // parameter name
-	//	0,   // minimum value
-	//	2,   // maximum value
-	//	0)); // default value
-	//addParameter(mCutOffParam = new AudioParameterFloat(
-	//	"cutOff", // parameter ID
-	//	"CutOff", // parameter name
-	//	0,   // minimum value
-	//	1,   // maximum value
-	//	0.4)); // default value
+	tree.createAndAddParameter(std::make_unique<AudioParameterInt>("filterType", "Filter Menu", 0, 2, 0));
+	tree.createAndAddParameter(std::make_unique<AudioParameterFloat>("cutoff", "Freq", NormalisableRange<float>(20.0, 20000.0, 0.01, 0.2), 600.0));
+	tree.createAndAddParameter(std::make_unique<AudioParameterFloat>("res", "Res", NormalisableRange<float>(0.0, 5.0, 0.01), 1.0 / MathConstants<double>::sqrt2));
 
 	filerTypeParameter = tree.getRawParameterValue("filterType");
 	cutoffParameter = tree.getRawParameterValue("cutoff");
