@@ -71,9 +71,9 @@ private:
 	//samples per second
 	double m_sampleRate;
 
-	std::atomic<float*> m_DelayTimeParameter = nullptr;
-	std::atomic<float*> m_FeedbackParameter = nullptr;
-	std::atomic<float*> m_DryWetParameter = nullptr;
+	std::atomic<float>* m_DelayTimeParameter = nullptr;
+	std::atomic<float>* m_FeedbackParameter = nullptr;
+	std::atomic<float>* m_DryWetParameter = nullptr;
 
 	void DelayBufferInput(int channel, int bufferLength, int delayBufferLength, const float* bufferData, const float* delayBufferData);
 	void Feedback(int channel, AudioBuffer<float>& buffer, const int bufferLength, const int delayBufferLength, const float* bufferData, const float* delayBufferData);

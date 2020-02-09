@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="QyLjVm" name="Delay" projectType="audioplug" jucerVersion="5.4.5">
+<JUCERPROJECT id="QyLjVm" name="Delay" projectType="audioplug" jucerVersion="5.4.6">
   <MAINGROUP id="K8za3W" name="Delay">
     <GROUP id="{6DF74FC6-285F-9279-B665-8E38A0614C0C}" name="Source">
       <FILE id="kngHp1" name="PluginProcessor.cpp" compile="1" resource="0"
