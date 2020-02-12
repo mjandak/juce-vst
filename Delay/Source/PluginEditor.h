@@ -37,6 +37,8 @@ private:
 	Slider m_sldFeedback;
 	Label m_lblDryWet;
 	Slider m_sldDryWet;
+	Label m_lblFeedbackFilterFreq;
+	Slider m_sldFeedbackFilterFreq;
 
 	TextButton mBtnReset;
 	//TextButton mChangeDelayTimeButton;
@@ -44,6 +46,7 @@ private:
 	std::unique_ptr<AudioProcessorValueTreeState::SliderAttachment> m_attachDelayTime;
 	std::unique_ptr<AudioProcessorValueTreeState::SliderAttachment> m_attachFeedback;
 	std::unique_ptr<AudioProcessorValueTreeState::SliderAttachment> m_attachDryWet;
+	std::unique_ptr<AudioProcessorValueTreeState::SliderAttachment> m_attachFeedbackFilterFreq;
 
 	void buttonClicked(Button*) override;
 

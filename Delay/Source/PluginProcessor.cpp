@@ -10,6 +10,7 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <fstream>
 
 //==============================================================================
 DelayAudioProcessor::DelayAudioProcessor()
@@ -24,7 +25,8 @@ DelayAudioProcessor::DelayAudioProcessor()
 	), tree(*this, nullptr, "PARAMETERS", {
 		std::make_unique<AudioParameterInt>("delaytime", "Delay time", 0, 2000, 250),
 		std::make_unique<AudioParameterFloat>("feedback", "Feedback", 0.0, 1.0, 0.6),
-		std::make_unique<AudioParameterFloat>("drywet", "DryWet", 0.0, 1.0, 0.5)
+		std::make_unique<AudioParameterFloat>("drywet", "DryWet", 0.0, 1.0, 0.5),
+		std::make_unique<AudioParameterFloat>("cutoff", "CutOff", NormalisableRange<float>(20.0, 20000.0, 0.01, 0.21), 4000.0)
 		}
 	)
 #endif
@@ -32,10 +34,12 @@ DelayAudioProcessor::DelayAudioProcessor()
 	m_DelayTimeParameter = tree.getRawParameterValue("delaytime");
 	m_FeedbackParameter = tree.getRawParameterValue("feedback");
 	m_DryWetParameter = tree.getRawParameterValue("drywet");
+	m_CutOff = tree.getRawParameterValue("cutoff");	
 }
 
 DelayAudioProcessor::~DelayAudioProcessor()
 {
+	delete m_filterBlock;
 }
 
 //==============================================================================
@@ -110,9 +114,25 @@ void DelayAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 
 	//two seconds of delay time plus little bit of extra room
 	const int delayBufferSize = 2 * (m_sampleRate + samplesPerBlock);
-	
-	mDelayBuffer.setSize(getTotalNumInputChannels(), delayBufferSize);
-	mDelayBuffer.clear();
+
+	m_DelayBuffer.setSize(getTotalNumInputChannels(), delayBufferSize);
+	m_DelayBuffer.clear();
+
+	m_filterBuffer.setSize(getTotalNumInputChannels(), 2 * samplesPerBlock);
+	m_filterBuffer.clear();
+
+	m_filterBlock = new juce::dsp::AudioBlock<float>(m_filterBuffer);
+
+	dsp::ProcessSpec spec;
+	spec.sampleRate = m_sampleRate;
+	spec.maximumBlockSize = 2 * samplesPerBlock;
+	spec.numChannels = getTotalNumInputChannels(); //getTotalNumOutputChannels(); ???
+
+	m_filter1.prepare(spec);
+	m_filter1.setCutoffFrequencyHz(*m_CutOff);
+
+	m_filter2.prepare(spec);
+	m_filter2.setCutoffFrequencyHz(*m_CutOff);
 }
 
 void DelayAudioProcessor::releaseResources()
@@ -160,55 +180,68 @@ void DelayAudioProcessor::processBlock(AudioBuffer<float>& buffer, MidiBuffer& m
 	for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
 		buffer.clear(i, 0, buffer.getNumSamples());
 
-	const int bufferLength = buffer.getNumSamples();
-	const int delayBufferLength = mDelayBuffer.getNumSamples();
-
 	// This is the place where you'd normally do the guts of your plugin's
 	// audio processing...
 	// Make sure to reset the state if your inner loop is processing
 	// the samples and the outer loop is handling the channels.
 	// Alternatively, you can process the samples with the channels
 	// interleaved by keeping the same state.
-	for (int channel = 0; channel < totalNumInputChannels; ++channel)
-	{
-		//auto* channelData = buffer.getWritePointer (channel);
-		auto bufferData = buffer.getReadPointer(channel);
-		auto delayBufferData = mDelayBuffer.getReadPointer(channel);
-		DelayBufferInput(channel, bufferLength, delayBufferLength, bufferData, delayBufferData);
-		Feedback(channel, buffer, bufferLength, delayBufferLength, bufferData, delayBufferData);
-		DWMix(channel, buffer, bufferLength, delayBufferData, delayBufferLength);
-	}
+
+	m_filter1.setCutoffFrequencyHz(*m_CutOff);
+	m_filter2.setCutoffFrequencyHz(*m_CutOff);
+
+	DelayBufferInput(totalNumInputChannels, buffer);
+	DelayBufferFeedback(totalNumInputChannels, buffer);
+	DWMix(totalNumInputChannels, buffer);
 
 	//shift delay buffer write position by main buffer's length
-	m_delayBufferWritePosition += bufferLength;
+	m_delayBufferWritePosition += buffer.getNumSamples();
 	//if write position exceeds delay buffer length, wrap around
-	m_delayBufferWritePosition %= delayBufferLength;
+	m_delayBufferWritePosition %= m_DelayBuffer.getNumSamples();
+
 }
 
 //Copy bufferData to delayBufferData at m_delayBufferWritePosition
-void DelayAudioProcessor::DelayBufferInput(int channel, int bufferLength, int delayBufferLength, const float* bufferData, const float* delayBufferData)
+void DelayAudioProcessor::DelayBufferInput(int channels, AudioBuffer<float>& buffer)
 {
+	int delayBufferLength = m_DelayBuffer.getNumSamples();
+	int bufferLength = buffer.getNumSamples();
+
+	for (int ch = 0; ch < channels; ++ch)
+	{
+		//auto bufferData = buffer.getReadPointer(ch);
+		m_filterBuffer.copyFrom(ch, 0, buffer, ch, 0, bufferLength);
+	}
+
+	m_filter1.process(juce::dsp::ProcessContextReplacing<float>(m_filterBlock->getSubBlock(0, bufferLength)));
+
 	//number of empty samples left in delay buffer:
 	//(last_sample_idx - first_empty_sample_idx) + 1 = last_sample_idx + 1 - first_empty_sample_idx = delay_buffer_length - first_empty_sample_idx
 	const int emptySamplesLeft = delayBufferLength - m_delayBufferWritePosition;
 
-	//is there in delay buff enough space to fit main buff?
-	if (emptySamplesLeft >= bufferLength)
+	for (int ch = 0; ch < channels; ++ch)
 	{
-		//there is
-		mDelayBuffer.copyFrom(channel, m_delayBufferWritePosition, bufferData, bufferLength);
-	}
-	else
-	{
-		//there is not
-		mDelayBuffer.copyFrom(channel, m_delayBufferWritePosition, bufferData, emptySamplesLeft);
-		mDelayBuffer.copyFrom(channel, 0, bufferData + emptySamplesLeft, bufferLength - emptySamplesLeft);
+		//is there in delay buff enough space to fit temp buff?
+		if (emptySamplesLeft >= bufferLength)
+		{
+			//there is
+			m_DelayBuffer.copyFrom(ch, m_delayBufferWritePosition, m_filterBuffer, ch, 0, bufferLength);
+		}
+		else
+		{
+			//there is not
+			m_DelayBuffer.copyFrom(ch, m_delayBufferWritePosition, m_filterBuffer, ch, 0, emptySamplesLeft);
+			m_DelayBuffer.copyFrom(ch, 0, m_filterBuffer, ch, emptySamplesLeft, bufferLength - emptySamplesLeft);
+		}
 	}
 }
 
 //Add delay buffer's output to it's input
-void DelayAudioProcessor::Feedback(int channel, AudioBuffer<float>& buffer, const int bufferLength, const int delayBufferLength, const float* bufferData, const float* delayBufferData)
+void DelayAudioProcessor::DelayBufferFeedback(int channels, AudioBuffer<float>& buffer)
 {
+	auto bufferLength = buffer.getNumSamples();
+	auto delayBufferLength = m_DelayBuffer.getNumSamples();
+
 	//delay time in ms
 	const int delayTime = *m_DelayTimeParameter;
 	const float feedback = *m_FeedbackParameter;
@@ -222,31 +255,51 @@ void DelayAudioProcessor::Feedback(int channel, AudioBuffer<float>& buffer, cons
 		m_delayedBlockPosition = delayBufferLength + m_delayedBlockPosition;
 	}
 
-	for (int i = 0; i < bufferLength; i++)
+	for (int ch = 0; ch < channels; ++ch)
 	{
-		auto delayeSamplePosition = (m_delayedBlockPosition + i) % delayBufferLength;
-		auto delayedSample = mDelayBuffer.getSample(channel, delayeSamplePosition);
-		auto currentSamplePosition = (m_delayBufferWritePosition + i) % delayBufferLength;
-		auto currentSample = mDelayBuffer.getSample(channel, currentSamplePosition);
-		mDelayBuffer.setSample(channel, currentSamplePosition, (feedback * delayedSample) + currentSample);
+		for (int i = 0; i < bufferLength; i++)
+		{
+			auto delayedSamplePosition = (m_delayedBlockPosition + i) % delayBufferLength;
+			auto delayedSample = m_DelayBuffer.getSample(ch, delayedSamplePosition);
+			m_filterBuffer.setSample(ch, i, delayedSample);
+		}
+	}
+
+	m_filter2.process(juce::dsp::ProcessContextReplacing<float>(m_filterBlock->getSubBlock(0, bufferLength)));
+
+	for (int ch = 0; ch < channels; ++ch)
+	{
+		for (int i = 0; i < bufferLength; i++)
+		{
+			auto currentSamplePosition = (m_delayBufferWritePosition + i) % delayBufferLength;
+			auto currentSample = m_DelayBuffer.getSample(ch, currentSamplePosition);
+			m_DelayBuffer.setSample(ch, currentSamplePosition, (feedback * m_filterBuffer.getSample(ch, i)) + currentSample);
+		}
 	}
 }
 
-void DelayAudioProcessor::DWMix(int channel, AudioBuffer<float>& buffer, int bufferLength, const float* delayBufferData, int delayBufferLength)
+void DelayAudioProcessor::DWMix(int channels, AudioBuffer<float>& buffer)
 {
-	const float dryWet = *m_DryWetParameter;
-	buffer.applyGain(channel, 0, bufferLength, 1.0f - dryWet);
-	const int numOfRemainingSamplesInDelayBuff = delayBufferLength - m_delayedBlockPosition;
-	if (numOfRemainingSamplesInDelayBuff >= bufferLength)
-	{
-		buffer.addFrom(channel, 0, delayBufferData + m_delayedBlockPosition, bufferLength, dryWet);
-	}
-	else
-	{
-		buffer.addFrom(channel, 0, delayBufferData + m_delayedBlockPosition, numOfRemainingSamplesInDelayBuff, dryWet);
-		buffer.addFrom(channel, 0 + numOfRemainingSamplesInDelayBuff, delayBufferData, bufferLength - numOfRemainingSamplesInDelayBuff, dryWet);
-	}
+	float dryWet = *m_DryWetParameter;
+	int bufferLength = buffer.getNumSamples();
+	int delayBufferLength = m_DelayBuffer.getNumSamples();
 
+	for (int ch = 0; ch < channels; ++ch)
+	{
+		auto delayBufferData = m_DelayBuffer.getReadPointer(ch);
+		buffer.applyGain(ch, 0, bufferLength, 1.0f - dryWet);
+		const int numOfRemainingSamplesInDelayBuff = delayBufferLength - m_delayedBlockPosition;
+
+		if (numOfRemainingSamplesInDelayBuff >= bufferLength)
+		{
+			buffer.addFrom(ch, 0, delayBufferData + m_delayedBlockPosition, bufferLength, dryWet);
+		}
+		else
+		{
+			buffer.addFrom(ch, 0, delayBufferData + m_delayedBlockPosition, numOfRemainingSamplesInDelayBuff, dryWet);
+			buffer.addFrom(ch, 0 + numOfRemainingSamplesInDelayBuff, delayBufferData, bufferLength - numOfRemainingSamplesInDelayBuff, dryWet);
+		}
+	}
 }
 
 //==============================================================================

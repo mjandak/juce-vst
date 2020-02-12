@@ -18,9 +18,7 @@
 class DelayAudioProcessor : public AudioProcessor
 {
 public:
-	//AudioParameterInt* mDelayTimeParam;
-	//AudioParameterFloat* mFeedbackParam;
-	//int mDelayTime{ 500 };
+
 	AudioProcessorValueTreeState tree;
 
 	//==============================================================================
@@ -63,21 +61,26 @@ public:
 
 private:
 	//delay buffer
-	AudioBuffer<float> mDelayBuffer;
+	AudioBuffer<float> m_DelayBuffer;
+	AudioBuffer<float> m_filterBuffer;
+	juce::dsp::AudioBlock<float>* m_filterBlock = nullptr;
+	dsp::LadderFilter<float> m_filter1;
+	dsp::LadderFilter<float> m_filter2;
 
 	//current write position in delay buffer
 	int m_delayBufferWritePosition{ 0 };
 	int m_delayedBlockPosition{ 0 };
 	//samples per second
-	double m_sampleRate;
+	double m_sampleRate{ 44100.0 };
 
 	std::atomic<float>* m_DelayTimeParameter = nullptr;
 	std::atomic<float>* m_FeedbackParameter = nullptr;
 	std::atomic<float>* m_DryWetParameter = nullptr;
+	std::atomic<float>* m_CutOff = nullptr;
 
-	void DelayBufferInput(int channel, int bufferLength, int delayBufferLength, const float* bufferData, const float* delayBufferData);
-	void Feedback(int channel, AudioBuffer<float>& buffer, const int bufferLength, const int delayBufferLength, const float* bufferData, const float* delayBufferData);
-	void DWMix(int channel, AudioBuffer<float>& buffer, int bufferLength, const float* delayBufferData, int delayBufferLength);
+	void DelayBufferInput(int channel, AudioBuffer<float>& buffer);
+	void DelayBufferFeedback(int channel, AudioBuffer<float>& buffer);
+	void DWMix(int channel, AudioBuffer<float>& buffer);
 
 	//==============================================================================
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DelayAudioProcessor)
