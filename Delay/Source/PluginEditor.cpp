@@ -17,7 +17,7 @@ DelayAudioProcessorEditor::DelayAudioProcessorEditor(DelayAudioProcessor& p)
 {
 	// Make sure that before the constructor has finished, you've set the
 	// editor's size to whatever you need it to be.
-	setSize(600, 300);
+	setSize(600, 200);
 
 	m_sldDelayTime.setSliderStyle(Slider::RotaryVerticalDrag);
 	m_sldDelayTime.setTextBoxStyle(Slider::TextBoxBelow, true, 90, 20);
@@ -108,10 +108,11 @@ void DelayAudioProcessorEditor::buttonClicked(Button* btn)
 	}
 	else if (text == "reset")
 	{
-		setSize(600, 300);
-		m_sldDelayTime.setValue(250);
-		m_sldFeedback.setValue(0.6);
-		m_sldDryWet.setValue(0.5);
+		setSize(600, 200);
+		m_sldDelayTime.setValue(m_sldDelayTime.getDoubleClickReturnValue());
+		m_sldFeedback.setValue(m_sldFeedback.getDoubleClickReturnValue());
+		m_sldDryWet.setValue(m_sldDryWet.getDoubleClickReturnValue());
+		m_sldFeedbackFilterFreq.setValue(m_sldFeedbackFilterFreq.getDoubleClickReturnValue());
 		//processor.mDelayTime = 500;
 	}
 }
